@@ -1,30 +1,28 @@
+# Minimal temporary model definitions for the migration
+module MigrationModels
+  class Account < ActiveRecord::Base
+    self.table_name = :accounts
+    belongs_to :family, class_name: 'MigrationModels::Family', foreign_key: 'family_id'
+  end
+
+  class Family < ActiveRecord::Base
+    self.table_name = :families
+    has_many :accounts, -> { order(created_at: :asc, id: :asc) }, class_name: 'MigrationModels::Account', foreign_key: 'family_id'
+  end
+end
+
 class AddPositionToAccounts < ActiveRecord::Migration[7.2]
   def change
     add_column :accounts, :position, :integer, null: true
 
     reversible do |dir|
       dir.up do
-        # Backfill existing accounts
-        # Ensure Account model is available for the migration
-        # If not, define a minimal version here or require the model explicitly.
-        # For this example, we assume the Account model is accessible.
-        unless defined?(Account)
-          # Minimal Account class definition if needed
-          class Account < ActiveRecord::Base
-            belongs_to :family
-          end
-        end
-        
-        unless defined?(Family)
-          # Minimal Family class definition if needed
-          class Family < ActiveRecord::Base
-            has_many :accounts
-          end
-        end
-
-        Family.find_each do |family|
-          family.accounts.order(created_at: :asc, id: :asc).each_with_index do |account, index|
-            account.update_column(:position, index)
+        # Backfill existing accounts using the models defined in MigrationModels module
+        MigrationModels::Family.find_each do |family|
+          family.accounts.each_with_index do |account, index|
+            # Using update_column to skip validations and callbacks, which is common in migrations.
+            # The Account model here is MigrationModels::Account.
+            MigrationModels::Account.where(id: account.id).update_all(position: index)
           end
         end
       end

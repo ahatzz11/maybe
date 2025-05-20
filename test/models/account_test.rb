@@ -92,4 +92,41 @@ class AccountTest < ActiveSupport::TestCase
     another_new_account = family.accounts.create!(name: "Another New Mixed Account", balance: 100, currency: "USD", accountable: Depository.new)
     assert_equal 2, another_new_account.position, "Next new account should also increment from max non-nil position."
   end
+
+  test "fixture-loaded accounts for dylan_family have non-nil and unique positions after migration" do
+    # This test assumes the AddPositionToAccounts migration has run and backfilled positions.
+    # The dylan_family is used as it has multiple accounts defined in fixtures.
+    family = families(:dylan_family)
+    
+    # Reload accounts to ensure we get them directly from the DB state post-migration.
+    # The order here doesn't strictly matter for this test, only that positions exist and are unique.
+    accounts_for_family = family.accounts.reload 
+
+    assert_not_empty accounts_for_family, "No accounts found for families(:dylan_family). Check fixtures."
+    
+    # There are 10 accounts for dylan_family in the provided fixtures.
+    # The backfill would assign positions 0 through 9.
+    expected_number_of_accounts = 10 
+    assert_equal expected_number_of_accounts, accounts_for_family.size, 
+                  "Expected #{expected_number_of_accounts} accounts for dylan_family, found #{accounts_for_family.size}. Update test if fixtures change."
+
+    positions = []
+    accounts_for_family.each do |account|
+      assert_not_nil account.position, "Account '#{account.name}' (ID: #{account.id}) for dylan_family has a nil position. Migration backfill might have issues."
+      positions << account.position
+    end
+
+    # Check for uniqueness of positions within this family
+    assert_equal positions.uniq.size, positions.size, 
+                  "Positions for accounts in dylan_family are not unique. Migration backfill might have issues. Positions found: #{positions.sort.inspect}"
+
+    # Optional: Check if positions are within the expected range (0 to N-1)
+    # This assumes the backfill logic (order by created_at, id then assign 0-indexed position)
+    # has worked as expected on the fixture data.
+    # The exact order of fixture loading can influence created_at/id, so the specific positions
+    # assigned to specific named accounts aren't tested, just their presence, uniqueness, and range.
+    assert_equal expected_number_of_accounts, positions.uniq.size, "There should be #{expected_number_of_accounts} unique positions."
+    assert positions.all? { |p| p >= 0 && p < expected_number_of_accounts }, 
+           "All positions should be within the range 0 to #{expected_number_of_accounts - 1}. Positions found: #{positions.sort.inspect}"
+  end
 end
