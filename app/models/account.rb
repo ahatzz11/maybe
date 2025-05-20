@@ -23,6 +23,7 @@ class Account < ApplicationRecord
   scope :liabilities, -> { where(classification: "liability") }
   scope :alphabetically, -> { order(:name) }
   scope :manual, -> { where(plaid_account_id: nil) }
+  scope :ordered_by_position, -> { order(Arel.sql('position ASC NULLS LAST')) }
 
   has_one_attached :logo
 
@@ -174,8 +175,22 @@ class Account < ApplicationRecord
   end
 
   private
-    def sync_balances
-      strategy = linked? ? :reverse : :forward
-      Balance::Syncer.new(self, strategy: strategy).sync_balances
+
+  def set_default_position
+    if self.family_id.present?
+      max_position = Account.where(family_id: self.family_id).maximum(:position)
+      self.position = max_position.nil? ? 0 : max_position + 1
+    else
+      # Potentially handle cases where family_id might not be set, though it's validated
+      # For now, assume family_id is always present due to `belongs_to :family` (which implies presence validation by default in Rails 5+)
+      # and the `validates :name, :balance, :currency, presence: true` (though family_id isn't explicitly here, it's a core association)
+      # If family_id could truly be nil before create and needs a position, this might need adjustment or error handling.
+      # However, given the schema and typical Rails behavior, family_id is expected.
     end
+  end
+
+  def sync_balances
+    strategy = linked? ? :reverse : :forward
+    Balance::Syncer.new(self, strategy: strategy).sync_balances
+  end
 end

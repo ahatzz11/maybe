@@ -62,8 +62,11 @@ class BalanceSheet
             classification_total.zero? ? 0 : account.converted_balance / classification_total.to_d * 100
           end
 
+          # The `position` attribute is on the `account` object itself,
+          # which is an instance of the Account model.
+          # The Account model was previously updated to include a `position` column.
           account
-        end.sort_by(&:weight).reverse
+        end.sort_by { |acc| [acc.position ? 0 : 1, acc.position] }
       )
     end.sort_by(&:weight).reverse
   end

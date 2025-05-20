@@ -34,6 +34,39 @@ class AccountsController < ApplicationController
     redirect_back_or_to accounts_path
   end
 
+  def update_order
+    account_ids = params[:account_ids]
+
+    unless account_ids.is_a?(Array)
+      return head :bad_request
+    end
+
+    ActiveRecord::Base.transaction do
+      account_ids.each_with_index do |id, index|
+        account = Current.family.accounts.find(id)
+        account.update!(position: index)
+      end
+    end
+
+    head :ok
+  rescue ArgumentError => e
+    # This case should ideally be caught by the `is_a?(Array)` check earlier,
+    # but as a fallback or if other argument issues arise with params.
+    Rails.logger.error "ArgumentError in AccountsController#update_order: #{e.message}"
+    head :bad_request
+  rescue ActiveRecord::RecordNotFound => e
+    Rails.logger.error "RecordNotFound in AccountsController#update_order: #{e.message}"
+    head :not_found
+  rescue ActiveRecord::RecordInvalid => e
+    Rails.logger.error "RecordInvalid in AccountsController#update_order: #{e.message}"
+    # Optionally, you could render json: { error: e.message }, status: :unprocessable_entity
+    head :unprocessable_entity
+  rescue StandardError => e
+    # Catch any other unexpected errors
+    Rails.logger.error "StandardError in AccountsController#update_order: #{e.message}\n#{e.backtrace.join("\n")}"
+    head :internal_server_error
+  end
+
   private
     def family
       Current.family

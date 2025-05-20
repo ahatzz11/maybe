@@ -106,6 +106,7 @@ Rails.application.routes.draw do
   resources :accounts, only: %i[index new], shallow: true do
     collection do
       post :sync_all
+      patch :update_order
     end
 
     member do

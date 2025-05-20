@@ -13,14 +13,18 @@
     </div>
   <% end %>
 
-  <div class="space-y-1">
+  <div class="space-y-1" data-controller="drag-sort" data-drag-sort-url-value="<%= update_order_accounts_path %>">
     <% account_group.accounts.each do |account| %>
-      <%= link_to account_path(account), 
+      <%= link_to account_path(account),
                   class: class_names(
-                    "block flex items-center gap-2 px-3 py-2 rounded-lg",
+                    "block flex items-center gap-2 px-3 py-2 rounded-lg", # Ensure this item is draggable by SortableJS
                     page_active?(account_path(account)) ? "bg-container" : "hover:bg-surface-hover"
-                  ), 
-                  data: { sidebar_tabs_target: "account", action: "click->sidebar-tabs#select" },
+                  ),
+                  data: {
+                    sidebar_tabs_target: "account", # existing
+                    action: "click->sidebar-tabs#select", # existing
+                    id: account.id # SortableJS will pick this up as data-id
+                  },
                   title: account.name do %>
         <%= render "accounts/logo", account: account, size: "sm", color: account_group.color %>
 
